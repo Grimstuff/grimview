@@ -12,6 +12,7 @@ import type { LoadedImage } from "../lib/images";
 
 export interface ViewerHandle {
   zoomBy(factor: number): void;
+  setZoom(zoom: number): void;
   fit(): void;
   actualSize(): void;
   toggleFit(): void;
@@ -125,6 +126,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     ref,
     () => ({
       zoomBy: (f) => zoomAt(viewRef.current.zoom * f),
+      setZoom: (z) => zoomAt(z),
       fit: toFit,
       actualSize: () => zoomAt(1),
       toggleFit: () => {

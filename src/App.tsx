@@ -20,13 +20,28 @@ import { initSystemAccent, initSystemTheme } from "./lib/theme";
 import { fitWindowToImage, revealWindow } from "./lib/windowFit";
 
 const CHECKER_KEY = "grimview.checker";
+const SIZE_WINDOW_KEY = "grimview.sizeWindowToImage";
 
-function readChecker(): boolean {
+/** On/off settings in localStorage (`grimview.*`); both default on. */
+function readFlag(key: string): boolean {
   try {
-    return localStorage.getItem(CHECKER_KEY) !== "0";
+    return localStorage.getItem(key) !== "0";
   } catch {
     return true;
   }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Display size after rotation. */
+function turnedSize(img: LoadedImage, rotation: number): [number, number] {
+  return rotation % 180 !== 0 ? [img.height, img.width] : [img.width, img.height];
 }
 
 export default function App() {
@@ -36,7 +51,12 @@ export default function App() {
   const [folder, setFolder] = useState<string[]>([]);
   const [rotation, setRotation] = useState(0);
   const [zoom, setZoom] = useState<{ zoom: number; fit: boolean }>({ zoom: 1, fit: true });
-  const [checker, setChecker] = useState(readChecker);
+  const [checker, setChecker] = useState(() => readFlag(CHECKER_KEY));
+  const [sizeWindow, setSizeWindow] = useState(() => readFlag(SIZE_WINDOW_KEY));
+  const sizeWindowRef = useRef(sizeWindow);
+  sizeWindowRef.current = sizeWindow;
+  const imageRef = useRef(image);
+  imageRef.current = image;
   const [fullscreen, setFullscreen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -96,7 +116,7 @@ export default function App() {
           : to === "last"
             ? list.length - 1
             : (Math.max(0, at) + (to === "next" ? 1 : -1) + list.length) % list.length;
-      void openPath(list[i], false);
+      void openPath(list[i], sizeWindowRef.current);
     },
     [openPath],
   );
@@ -120,8 +140,8 @@ export default function App() {
         { name: "All files", extensions: ["*"] },
       ],
     });
-    if (typeof picked === "string") void openPath(picked, !image);
-  }, [openPath, image]);
+    if (typeof picked === "string") void openPath(picked, !imageRef.current || sizeWindowRef.current);
+  }, [openPath]);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -156,21 +176,26 @@ export default function App() {
     }
   }, [flash]);
 
-  const rotate = useCallback((dir: 1 | -1) => setRotation((r) => (r + dir * 90 + 360) % 360), []);
+  const rotate = useCallback((dir: 1 | -1) => {
+    setRotation((r) => {
+      const next = (r + dir * 90 + 360) % 360;
+      const img = imageRef.current;
+      if (img && sizeWindowRef.current) void fitWindowToImage(...turnedSize(img, next));
+      return next;
+    });
+  }, []);
 
-  const fitWindow = useCallback(() => {
-    if (!image) return;
-    const turned = rotation % 180 !== 0;
-    void fitWindowToImage(turned ? image.height : image.width, turned ? image.width : image.height);
-  }, [image, rotation]);
+  const toggleSizeWindow = useCallback(() => {
+    const on = !sizeWindowRef.current;
+    writeFlag(SIZE_WINDOW_KEY, on);
+    setSizeWindow(on);
+    const img = imageRef.current;
+    if (on && img) void fitWindowToImage(...turnedSize(img, rotation));
+  }, [rotation]);
 
   const toggleChecker = useCallback(() => {
     setChecker((v) => {
-      try {
-        localStorage.setItem(CHECKER_KEY, v ? "0" : "1");
-      } catch {
-        /* ignore */
-      }
+      writeFlag(CHECKER_KEY, !v);
       return !v;
     });
   }, []);
@@ -206,7 +231,7 @@ export default function App() {
     void getCurrentWebview()
       .onDragDropEvent((e) => {
         if (e.payload.type === "drop" && e.payload.paths.length) {
-          void openPath(e.payload.paths[0], !current.current);
+          void openPath(e.payload.paths[0], !current.current || sizeWindowRef.current);
         }
       })
       .then((u) => (unlisten = u))
@@ -259,7 +284,7 @@ export default function App() {
           return handled(), rotate(-1);
         case "w":
         case "W":
-          return handled(), fitWindow();
+          return handled(), toggleSizeWindow();
         case "F11":
         case "f":
         case "F":
@@ -284,7 +309,7 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mouseup", onMouse);
     };
-  }, [aboutOpen, pickFile, copyPath, copyImage, go, rotate, fitWindow, toggleFullscreen, fullscreen]);
+  }, [aboutOpen, pickFile, copyPath, copyImage, go, rotate, toggleSizeWindow, toggleFullscreen, fullscreen]);
 
   const onZoom = useCallback((z: number, fit: boolean) => setZoom({ zoom: z, fit }), []);
 
@@ -301,22 +326,18 @@ export default function App() {
       { label: "Copy path", shortcut: "Ctrl+Shift+C", disabled: !current.current, run: copyPath },
     ],
     [
-      { label: "Zoom in", shortcut: "+", disabled: !hasImage, run: () => viewer.current?.zoomBy(1.25) },
-      { label: "Zoom out", shortcut: "−", disabled: !hasImage, run: () => viewer.current?.zoomBy(0.8) },
-      { label: "Fit to window", shortcut: "0", disabled: !hasImage, run: () => viewer.current?.fit() },
-      { label: "Actual size", shortcut: "1", disabled: !hasImage, run: () => viewer.current?.actualSize() },
       { label: "Rotate right", shortcut: "R", disabled: !hasImage, run: () => rotate(1) },
       { label: "Rotate left", shortcut: "L", disabled: !hasImage, run: () => rotate(-1) },
-      {
-        label: "Size window to image",
-        shortcut: "W",
-        disabled: !hasImage,
-        title: "Resize the window to show the image at 100%, or as large as the screen allows",
-        run: fitWindow,
-      },
       { label: "Fullscreen", shortcut: "F11", run: toggleFullscreen },
     ],
     [
+      {
+        label: "Size window to image",
+        shortcut: "W",
+        checked: sizeWindow,
+        title: "Resize the window to each image: 100%, or as large as the screen allows",
+        run: toggleSizeWindow,
+      },
       {
         label: "Transparency grid",
         checked: checker,
@@ -342,8 +363,9 @@ export default function App() {
         <Chrome
           title={shownPath ? fileName(shownPath) : "Grimview"}
           meta={meta}
-          zoomLabel={image ? `${Math.round(zoom.zoom * 100)}%` : null}
-          onZoomClick={() => viewer.current?.toggleFit()}
+          zoom={image ? zoom.zoom : null}
+          onZoom={(z) => viewer.current?.setZoom(z)}
+          onFit={() => viewer.current?.fit()}
           menu={menu}
         />
       )}

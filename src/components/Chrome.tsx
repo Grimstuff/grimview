@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ZoomPopover } from "./ZoomPopover";
 
 export interface MenuItem {
   label: string;
@@ -14,15 +15,19 @@ export interface MenuItem {
 interface ChromeProps {
   title: string;
   meta: string;
-  zoomLabel: string | null;
-  onZoomClick: () => void;
+  /** Screen px per image px; null when nothing is shown. */
+  zoom: number | null;
+  onZoom: (zoom: number) => void;
+  onFit: () => void;
   /** Groups are separated by a divider. */
   menu: MenuItem[][];
 }
 
 /** Frameless chrome: ☰ | name · meta (drag region) | zoom | window controls */
-export function Chrome({ title, meta, zoomLabel, onZoomClick, menu }: ChromeProps) {
+export function Chrome({ title, meta, zoom, onZoom, onFit, menu }: ChromeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const zoomBtnRef = useRef<HTMLButtonElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [maximized, setMaximized] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -146,16 +151,26 @@ export function Chrome({ title, meta, zoomLabel, onZoomClick, menu }: ChromeProp
         {meta ? <span className="chrome-meta">{meta}</span> : null}
       </div>
 
-      {zoomLabel ? (
+      {zoom !== null ? (
         <button
+          ref={zoomBtnRef}
           type="button"
           className="chrome-zoom"
-          title="Toggle fit / actual size"
-          onClick={onZoomClick}
+          title="Zoom"
+          aria-expanded={zoomOpen}
+          onClick={() => setZoomOpen((v) => !v)}
         >
-          {zoomLabel}
+          {Math.round(zoom * 100)}%
         </button>
       ) : null}
+      <ZoomPopover
+        zoom={zoom ?? 1}
+        anchor={zoomBtnRef.current}
+        open={zoomOpen && zoom !== null}
+        onClose={() => setZoomOpen(false)}
+        onZoom={onZoom}
+        onFit={onFit}
+      />
 
       <div className="chrome-controls">
         <button
