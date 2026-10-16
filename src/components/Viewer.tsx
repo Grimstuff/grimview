@@ -22,7 +22,8 @@ interface ViewerProps {
   image: LoadedImage;
   rotation: number;
   checker: boolean;
-  onZoom(zoom: number, fit: boolean): void;
+  /** fitZoom: the zoom that fits the window right now (≤ 1). */
+  onZoom(zoom: number, fit: boolean, fitZoom: number): void;
 }
 
 /** zoom is screen pixels per image pixel (1 = 100%, independent of Windows scaling). */
@@ -119,8 +120,8 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   }, [commit, fitZoom]);
 
   useEffect(() => {
-    onZoom(view.zoom, view.fit);
-  }, [view.zoom, view.fit, onZoom]);
+    onZoom(view.zoom, view.fit, fitZoom());
+  }, [view, onZoom, fitZoom]);
 
   useImperativeHandle(
     ref,

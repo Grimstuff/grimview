@@ -18,13 +18,27 @@ interface ChromeProps {
   /** Screen px per image px; null when nothing is shown. */
   zoom: number | null;
   onZoom: (zoom: number) => void;
+  fitZoom: number;
   onFit: () => void;
+  /** Copies the file name; resolves true when it worked. */
+  onTitleClick?: () => Promise<boolean>;
   /** Groups are separated by a divider. */
   menu: MenuItem[][];
 }
 
 /** Frameless chrome: ☰ | name · meta (drag region) | zoom | window controls */
-export function Chrome({ title, meta, zoom, onZoom, onFit, menu }: ChromeProps) {
+export function Chrome({
+  title,
+  meta,
+  zoom,
+  fitZoom,
+  onZoom,
+  onFit,
+  onTitleClick,
+  menu,
+}: ChromeProps) {
+  const [copied, setCopied] = useState(false);
+  const copyTimer = useRef(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [zoomOpen, setZoomOpen] = useState(false);
   const zoomBtnRef = useRef<HTMLButtonElement>(null);
@@ -147,7 +161,26 @@ export function Chrome({ title, meta, zoom, onZoom, onFit, menu }: ChromeProps) 
         data-tauri-drag-region
         onDoubleClick={() => void winAction("toggleMaximize")}
       >
-        <span className="chrome-title">{title}</span>
+        {onTitleClick ? (
+          <button
+            type="button"
+            className="chrome-title chrome-title-btn"
+            title="Copy file name"
+            onClick={() =>
+              void onTitleClick().then((ok) => {
+                if (!ok) return;
+                setCopied(true);
+                window.clearTimeout(copyTimer.current);
+                copyTimer.current = window.setTimeout(() => setCopied(false), 1200);
+              })
+            }
+          >
+            {title}
+          </button>
+        ) : (
+          <span className="chrome-title">{title}</span>
+        )}
+        {copied ? <span className="chrome-copied">Copied</span> : null}
         {meta ? <span className="chrome-meta">{meta}</span> : null}
       </div>
 
@@ -165,6 +198,7 @@ export function Chrome({ title, meta, zoom, onZoom, onFit, menu }: ChromeProps) 
       ) : null}
       <ZoomPopover
         zoom={zoom ?? 1}
+        fitZoom={fitZoom}
         anchor={zoomBtnRef.current}
         open={zoomOpen && zoom !== null}
         onClose={() => setZoomOpen(false)}

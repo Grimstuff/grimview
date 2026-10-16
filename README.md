@@ -33,7 +33,8 @@ Or drop a file on the exe, the window, or use **Open with**. The installer adds 
 | Drag | Pan when zoomed in, otherwise move the window |
 | R / L | Rotate right / left (view only) |
 | W | Toggle "Size window to image" (on: the window resizes to every image) |
-| Click the % | Zoom slider (middle snaps to 100%) |
+| Click the % | Zoom slider (snaps to 100% in the middle and to fit) |
+| Click the file name | Copy the file name |
 | F11 or F | Fullscreen |
 | Ctrl+C / Ctrl+Shift+C | Copy image / copy path |
 | Ctrl+O | Open |

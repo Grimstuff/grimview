@@ -50,7 +50,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [folder, setFolder] = useState<string[]>([]);
   const [rotation, setRotation] = useState(0);
-  const [zoom, setZoom] = useState<{ zoom: number; fit: boolean }>({ zoom: 1, fit: true });
+  const [zoom, setZoom] = useState({ zoom: 1, fit: true, fitZoom: 1 });
   const [checker, setChecker] = useState(() => readFlag(CHECKER_KEY));
   const [sizeWindow, setSizeWindow] = useState(() => readFlag(SIZE_WINDOW_KEY));
   const sizeWindowRef = useRef(sizeWindow);
@@ -311,7 +311,10 @@ export default function App() {
     };
   }, [aboutOpen, pickFile, copyPath, copyImage, go, rotate, toggleSizeWindow, toggleFullscreen, fullscreen]);
 
-  const onZoom = useCallback((z: number, fit: boolean) => setZoom({ zoom: z, fit }), []);
+  const onZoom = useCallback(
+    (z: number, fit: boolean, fitZoom: number) => setZoom({ zoom: z, fit, fitZoom }),
+    [],
+  );
 
   const hasImage = !!image;
   const menu: MenuItem[][] = [
@@ -364,6 +367,12 @@ export default function App() {
           title={shownPath ? fileName(shownPath) : "Grimview"}
           meta={meta}
           zoom={image ? zoom.zoom : null}
+          fitZoom={zoom.fitZoom}
+          onTitleClick={
+            shownPath
+              ? () => navigator.clipboard.writeText(fileName(shownPath)).then(() => true, () => false)
+              : undefined
+          }
           onZoom={(z) => viewer.current?.setZoom(z)}
           onFit={() => viewer.current?.fit()}
           menu={menu}

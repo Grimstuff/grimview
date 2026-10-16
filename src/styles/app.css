@@ -72,6 +72,40 @@
   text-overflow: ellipsis;
 }
 
+.chrome-title-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.chrome-title-btn:hover {
+  background: var(--gp-tab-hover);
+}
+
+.chrome-copied {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 9px;
+  background: var(--gp-accent-soft-strong);
+  color: var(--gp-text);
+  pointer-events: none;
+  animation: gv-fade 1.2s ease forwards;
+}
+
+@keyframes gv-fade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .chrome-title {
   color: var(--gp-text);
   font-size: 12.5px;
@@ -501,11 +535,11 @@
   position: fixed;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 12px;
+  gap: 6px;
+  padding: 4px 8px;
   background: var(--gp-menu-bg);
   border: 1px solid var(--gp-border);
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: var(--gp-menu-shadow);
   z-index: 10000;
 }
@@ -514,27 +548,33 @@
   position: relative;
   display: flex;
   align-items: center;
-  width: 200px;
+  width: 120px;
+  height: 20px;
 }
 
-/* 100% notch under the thumb's middle position */
+/* Snap notches: 100% (middle) and fit-to-window (accent) */
 .zoom-pop-tick {
   position: absolute;
-  left: 50%;
   top: 50%;
   width: 2px;
-  height: 12px;
+  height: 10px;
   margin-left: -1px;
   transform: translateY(-50%);
   border-radius: 1px;
   background: var(--gp-text-muted);
-  opacity: 0.7;
+  opacity: 0.75;
   pointer-events: none;
+}
+
+.zoom-pop-tick.fit {
+  background: var(--gp-accent);
+  opacity: 1;
 }
 
 .zoom-pop-slider {
   position: relative;
   width: 100%;
+  height: 16px;
   margin: 0;
   accent-color: var(--gp-accent);
   background: transparent;
@@ -542,26 +582,9 @@
 }
 
 .zoom-pop-value {
-  min-width: 44px;
+  min-width: 36px;
   text-align: right;
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
-  color: var(--gp-text);
-}
-
-.zoom-pop-fit {
-  appearance: none;
-  border: 1px solid var(--gp-border);
-  background: transparent;
   color: var(--gp-text-secondary);
-  font-size: 11.5px;
-  padding: 3px 9px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.zoom-pop-fit:hover {
-  background: var(--gp-accent);
-  border-color: var(--gp-accent);
-  color: var(--gp-accent-fg, #fff);
 }
