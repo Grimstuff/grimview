@@ -306,13 +306,29 @@ export default function App() {
     [tool],
   );
 
-  // No browser context menu anywhere; ours replaces it on the image.
+  // No browser context menu anywhere (its "Save as" writes an HTML page); ours replaces it.
+  // Same for WebView2's own shortcuts: Ctrl+S/P/F/G/U/R, F3, F5, F7, Ctrl+Shift+I…
   useEffect(() => {
     const block = (e: MouseEvent) => {
       if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
     };
+    const browserKeys = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (
+        (ctrl && ["s", "p", "f", "g", "u", "r", "j", "h", "d", "l", "n", "t"].includes(k)) ||
+        (ctrl && e.shiftKey && ["i", "j", "delete", "o"].includes(k)) ||
+        ["f3", "f5", "f7", "f12", "browserback", "browserforward"].includes(k)
+      ) {
+        e.preventDefault();
+      }
+    };
     document.addEventListener("contextmenu", block);
-    return () => document.removeEventListener("contextmenu", block);
+    window.addEventListener("keydown", browserKeys, true);
+    return () => {
+      document.removeEventListener("contextmenu", block);
+      window.removeEventListener("keydown", browserKeys, true);
+    };
   }, []);
 
   // Boot: theme, accent, launch file. The window stays hidden until the first frame is sized.
