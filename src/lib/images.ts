@@ -3,6 +3,10 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 export interface FileInfo {
   size: number;
   mtimeMs: number | null;
+  /** Why Edit is unavailable; null when the file can be edited and saved. */
+  editBlocked: string | null;
+  /** Windows can use the file as a background without conversion. */
+  wallpaperDirect: boolean;
 }
 
 export interface LoadedImage {
@@ -11,6 +15,8 @@ export interface LoadedImage {
   width: number;
   height: number;
   size: number;
+  editBlocked: string | null;
+  wallpaperDirect: boolean;
   /** SVG without intrinsic size: width/height are a stand-in. */
   sizeless: boolean;
 }
@@ -81,6 +87,8 @@ export async function loadImage(path: string): Promise<LoadedImage> {
     width: sizeless ? 800 : img.naturalWidth,
     height: sizeless ? 600 : img.naturalHeight,
     size: info.size,
+    editBlocked: info.editBlocked,
+    wallpaperDirect: info.wallpaperDirect,
     sizeless,
   };
 }
@@ -112,8 +120,8 @@ export function formatBytes(n: number): string {
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-/** PNG of the image onto the clipboard (needs the CORS header from lib.rs). */
-export async function copyImageToClipboard(img: LoadedImage): Promise<void> {
+/** The image as PNG, rendered by the webview (so SVG and AVIF work too). Needs the CORS header from lib.rs. */
+async function renderPng(img: LoadedImage): Promise<Blob> {
   const el = await loadElement(img.src);
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
@@ -121,8 +129,42 @@ export async function copyImageToClipboard(img: LoadedImage): Promise<void> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("No canvas");
   ctx.drawImage(el, 0, 0, canvas.width, canvas.height);
-  const blob = await new Promise<Blob>((resolve, reject) =>
+  return new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode"))), "image/png"),
   );
+}
+
+export async function copyImageToClipboard(img: LoadedImage): Promise<void> {
+  const blob = await renderPng(img);
   await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+}
+
+export async function setAsWallpaper(img: LoadedImage): Promise<void> {
+  const body = img.wallpaperDirect
+    ? new Uint8Array()
+    : new Uint8Array(await (await renderPng(img)).arrayBuffer());
+  await invoke("set_wallpaper", body, { headers: { "x-path": encodeURIComponent(img.path) } });
+}
+
+export type EditOp =
+  | { kind: "rotate"; turns: 1 | 2 | 3 }
+  | { kind: "crop"; x: number; y: number; w: number; h: number }
+  | { kind: "resize"; w: number; h: number };
+
+/** Saves the edit. Overwriting sends the original to the Recycle Bin. Returns the saved path. */
+export function editImage(path: string, op: EditOp, asCopy: boolean): Promise<string> {
+  return invoke<string>("edit_image", { path, op, asCopy });
+}
+
+export interface OpenWithHandler {
+  name: string;
+  id: string;
+}
+
+export async function openWithHandlers(path: string): Promise<OpenWithHandler[]> {
+  try {
+    return await invoke<OpenWithHandler[]>("open_with_handlers", { path });
+  } catch {
+    return [];
+  }
 }

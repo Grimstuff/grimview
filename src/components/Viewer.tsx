@@ -24,6 +24,15 @@ interface ViewerProps {
   checker: boolean;
   /** fitZoom: the zoom that fits the window right now (≤ 1). */
   onZoom(zoom: number, fit: boolean, fitZoom: number): void;
+  /** Drawn over the image (crop tool); gets the unrotated image's box in stage CSS px. */
+  overlay?: (rect: ImageRect) => React.ReactNode;
+}
+
+export interface ImageRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 /** zoom is screen pixels per image pixel (1 = 100%, independent of Windows scaling). */
@@ -39,7 +48,7 @@ const MAX_ZOOM = 64;
 const DRAG_THRESHOLD = 4;
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
-  { image, rotation, checker, onZoom },
+  { image, rotation, checker, onZoom, overlay },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -170,7 +179,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || overlay) return;
     const v = viewRef.current;
     drag.current = { sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false };
   };
@@ -229,7 +238,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onDoubleClick={onDoubleClick}
+      onDoubleClick={overlay ? undefined : onDoubleClick}
     >
       <img
         key={image.src}
@@ -244,6 +253,14 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
           transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) rotate(${rotation}deg)`,
         }}
       />
+      {overlay
+        ? overlay({
+            left: stageSize().w / 2 + view.x - cssW / 2,
+            top: stageSize().h / 2 + view.y - cssH / 2,
+            width: cssW,
+            height: cssH,
+          })
+        : null}
     </div>
   );
 });

@@ -588,3 +588,249 @@
   font-variant-numeric: tabular-nums;
   color: var(--gp-text-secondary);
 }
+
+/* ── Right-click menu ─────────────────────────────────── */
+.ctx-menu {
+  min-width: 210px;
+  max-height: none;
+  overflow: visible;
+}
+
+.menu-option.open {
+  background: var(--gp-tab-hover);
+}
+
+.menu-chevron {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* ── Crop ─────────────────────────────────────────────── */
+.crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+  cursor: move;
+  touch-action: none;
+  z-index: 4;
+}
+
+.crop-grid {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.crop-grid.v1,
+.crop-grid.v2 {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.crop-grid.v1 { left: 33.333%; }
+.crop-grid.v2 { left: 66.666%; }
+
+.crop-grid.h1,
+.crop-grid.h2 {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+.crop-grid.h1 { top: 33.333%; }
+.crop-grid.h2 { top: 66.666%; }
+
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 3px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.crop-handle.nw { left: 0; top: 0; cursor: nwse-resize; }
+.crop-handle.n { left: 50%; top: 0; cursor: ns-resize; }
+.crop-handle.ne { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-handle.e { left: 100%; top: 50%; cursor: ew-resize; }
+.crop-handle.se { left: 100%; top: 100%; cursor: nwse-resize; }
+.crop-handle.s { left: 50%; top: 100%; cursor: ns-resize; }
+.crop-handle.sw { left: 0; top: 100%; cursor: nesw-resize; }
+.crop-handle.w { left: 0; top: 50%; cursor: ew-resize; }
+
+/* Floating bar for the crop tool */
+.tool-bar {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  max-width: calc(100% - 16px);
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--gp-menu-bg);
+  border: 1px solid var(--gp-border);
+  border-radius: 8px;
+  box-shadow: var(--gp-menu-shadow);
+  z-index: 8;
+}
+
+.tool-chips {
+  display: flex;
+  gap: 2px;
+}
+
+.tool-chip {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--gp-text-secondary);
+  font-size: 11.5px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.tool-chip:hover {
+  background: var(--gp-tab-hover);
+  color: var(--gp-text);
+}
+
+.tool-chip.on {
+  background: var(--gp-accent-soft-strong);
+  color: var(--gp-text);
+}
+
+.tool-dims {
+  font-size: 11.5px;
+  color: var(--gp-text-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 84px;
+  text-align: center;
+}
+
+.tool-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.tool-btn {
+  appearance: none;
+  border: 1px solid var(--gp-border);
+  background: transparent;
+  color: var(--gp-text);
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: var(--gp-tab-hover);
+}
+
+.tool-btn.primary {
+  background: var(--gp-accent);
+  border-color: var(--gp-accent);
+  color: var(--gp-accent-fg, #fff);
+  font-weight: 600;
+}
+
+.tool-btn.primary:hover:not(:disabled) {
+  background: var(--gp-accent-hover);
+}
+
+.tool-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── Resize dialog ────────────────────────────────────── */
+.resize-dialog {
+  text-align: left;
+  width: min(340px, 100%);
+}
+
+.resize-title {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.resize-now {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--gp-text-muted);
+}
+
+.resize-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.resize-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--gp-text-secondary);
+  flex: 1;
+}
+
+.resize-row input[type="number"] {
+  font: inherit;
+  font-size: 13px;
+  color: var(--gp-text);
+  background: var(--gp-surface);
+  border: 1px solid var(--gp-border);
+  border-radius: 5px;
+  padding: 6px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  user-select: text;
+}
+
+.resize-row input[type="number"]:focus {
+  outline: 2px solid var(--gp-focus-ring);
+  outline-offset: -1px;
+}
+
+.resize-x {
+  padding-bottom: 7px;
+  color: var(--gp-text-muted);
+}
+
+.resize-opts {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.resize-row .resize-lock {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--gp-text);
+  cursor: pointer;
+}
+
+.resize-lock input {
+  accent-color: var(--gp-accent);
+}
+
+.resize-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}

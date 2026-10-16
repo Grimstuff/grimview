@@ -13,7 +13,7 @@ pub fn to_png(path: &Path) -> Result<Vec<u8>, String> {
     encode_png(img)
 }
 
-fn decode(path: &Path) -> Result<DynamicImage, String> {
+pub fn decode(path: &Path) -> Result<DynamicImage, String> {
     let ext = formats::ext_of(path);
     if ext == "jxl" {
         return decode_jxl(path);

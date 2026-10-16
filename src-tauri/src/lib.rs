@@ -1,8 +1,10 @@
 // Grimview Tauri backend — image protocol, folder listing, launch paths
 mod accent;
 mod decode;
+pub mod edit;
 mod formats;
 mod placement;
+pub mod shell;
 #[cfg(windows)]
 mod wic;
 
@@ -144,6 +146,10 @@ fn list_folder_images(path: String) -> Result<Vec<String>, String> {
 struct FileInfo {
     size: u64,
     mtime_ms: Option<u64>,
+    /// Why Edit is unavailable for this file; None when it can be edited.
+    edit_blocked: Option<String>,
+    /// Windows can use the file as a background without converting it.
+    wallpaper_direct: bool,
 }
 
 #[tauri::command]
@@ -156,7 +162,18 @@ fn get_file_info(path: String) -> Result<FileInfo, String> {
             .ok()
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
             .map(|d| d.as_millis() as u64),
+        edit_blocked: edit::not_editable_reason(Path::new(&path)),
+        wallpaper_direct: shell::wallpaper_direct(Path::new(&path)),
     })
+}
+
+/// Rotate / crop / resize and save; returns the saved file's path.
+/// Runs off the main thread: Lanczos on a 24 MP photo takes a moment.
+#[tauri::command]
+async fn edit_image(path: String, op: edit::EditOp, as_copy: bool) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || edit::apply(Path::new(&path), op, as_copy))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -195,7 +212,12 @@ pub fn run() {
             get_file_info,
             accent::get_system_accent,
             placement::client_rect,
-            placement::place_window
+            placement::place_window,
+            edit_image,
+            shell::open_with_handlers,
+            shell::open_with,
+            shell::open_with_dialog,
+            shell::set_wallpaper
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -7,8 +7,16 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Chrome, type MenuItem } from "./components/Chrome";
 import { Viewer, type ViewerHandle } from "./components/Viewer";
 import { AboutDialog } from "./components/AboutDialog";
+import { ContextMenu, type CtxItem } from "./components/ContextMenu";
+import { ASPECTS, CropBar, CropOverlay, fitAspect, roundBox, type CropBox } from "./components/CropTool";
+import { ResizeDialog } from "./components/ResizeDialog";
 import {
   copyImageToClipboard,
+  editImage,
+  openWithHandlers,
+  setAsWallpaper,
+  type EditOp,
+  type OpenWithHandler,
   fileName,
   formatBytes,
   listFolder,
@@ -60,6 +68,12 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
+  const [handlers, setHandlers] = useState<OpenWithHandler[] | null>(null);
+  const [tool, setTool] = useState<"crop" | "resize" | null>(null);
+  const [cropBox, setCropBox] = useState<CropBox>({ x: 0, y: 0, w: 1, h: 1 });
+  const [cropAspect, setCropAspect] = useState("Free");
+  const [busy, setBusy] = useState(false);
   const formats = useRef<string[]>([]);
   const viewer = useRef<ViewerHandle>(null);
   const loadSeq = useRef(0);
@@ -67,9 +81,9 @@ export default function App() {
   const folderRef = useRef<string[]>([]);
   folderRef.current = folder;
 
-  const flash = useCallback((msg: string) => {
+  const flash = useCallback((msg: string, ms = 1400) => {
     setToast(msg);
-    window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 1400);
+    window.setTimeout(() => setToast((t) => (t === msg ? null : t)), ms);
   }, []);
 
   const openPath = useCallback(async (path: string, fitWindow: boolean) => {
@@ -200,6 +214,107 @@ export default function App() {
     });
   }, []);
 
+  const copyName = useCallback(async () => {
+    const p = current.current;
+    if (!p) return;
+    try {
+      await navigator.clipboard.writeText(fileName(p));
+      flash("Name copied");
+    } catch {
+      flash("Could not copy name");
+    }
+  }, [flash]);
+
+  const showInFolder = useCallback(() => {
+    if (current.current) void revealItemInDir(current.current).catch(() => undefined);
+  }, []);
+
+  const setWallpaper = useCallback(async () => {
+    const img = imageRef.current;
+    if (!img) return;
+    try {
+      await setAsWallpaper(img);
+      flash("Set as desktop background");
+    } catch (e) {
+      flash(String(e), 3500);
+    }
+  }, [flash]);
+
+  /** Save an edit, then show the result (the new copy, or the same file reloaded). */
+  const saveEdit = useCallback(
+    async (op: EditOp, asCopy: boolean) => {
+      const img = imageRef.current;
+      if (!img || busy) return;
+      setBusy(true);
+      try {
+        const saved = await editImage(img.path, op, asCopy);
+        setTool(null);
+        if (asCopy) {
+          folderRef.current = [];
+          setFolder([]);
+        }
+        await openPath(saved, sizeWindowRef.current);
+        flash(asCopy ? `Saved as ${fileName(saved)}` : "Saved (original is in the Recycle Bin)", 2400);
+      } catch (e) {
+        flash(String(e), 3500);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, openPath, flash],
+  );
+
+  const startCrop = useCallback(() => {
+    const img = imageRef.current;
+    if (!img) return;
+    setRotation(0);
+    setCropAspect("Free");
+    setCropBox({ x: 0, y: 0, w: img.width, h: img.height });
+    setTool("crop");
+    requestAnimationFrame(() => viewer.current?.fit());
+  }, []);
+
+  const pickAspect = useCallback((label: string) => {
+    const img = imageRef.current;
+    if (!img) return;
+    setCropAspect(label);
+    const a = ASPECTS.find((x) => x.label === label)?.ratio ?? null;
+    const ratio = a === "original" ? img.width / img.height : a;
+    if (ratio) setCropBox((b) => fitAspect(b, ratio, img.width, img.height));
+  }, []);
+
+  const aspectRatio = ASPECTS.find((x) => x.label === cropAspect)?.ratio ?? null;
+  const cropRatio =
+    aspectRatio === "original" ? (image ? image.width / image.height : null) : aspectRatio;
+
+  const saveCrop = useCallback(
+    (asCopy: boolean) => {
+      const r = roundBox(cropBox);
+      void saveEdit({ kind: "crop", x: r.x, y: r.y, w: r.w, h: r.h }, asCopy);
+    },
+    [cropBox, saveEdit],
+  );
+
+  const openContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (tool || !current.current) return;
+      setCtx({ x: e.clientX, y: e.clientY });
+      setHandlers(null);
+      void openWithHandlers(current.current).then(setHandlers);
+    },
+    [tool],
+  );
+
+  // No browser context menu anywhere; ours replaces it on the image.
+  useEffect(() => {
+    const block = (e: MouseEvent) => {
+      if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+    };
+    document.addEventListener("contextmenu", block);
+    return () => document.removeEventListener("contextmenu", block);
+  }, []);
+
   // Boot: theme, accent, launch file. The window stays hidden until the first frame is sized.
   useEffect(() => {
     const untheme = initSystemTheme();
@@ -241,10 +356,15 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (aboutOpen) return;
+      if (aboutOpen || tool === "resize") return;
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key;
       const handled = () => e.preventDefault();
+      if (tool === "crop") {
+        if (k === "Escape") return handled(), setTool(null);
+        if (k === "Enter") return handled(), saveCrop(false);
+        return;
+      }
       if (ctrl && k.toLowerCase() === "o") return handled(), void pickFile();
       if (ctrl && e.shiftKey && k.toLowerCase() === "c") return handled(), void copyPath();
       if (ctrl && k.toLowerCase() === "c") return handled(), void copyImage();
@@ -309,7 +429,19 @@ export default function App() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("mouseup", onMouse);
     };
-  }, [aboutOpen, pickFile, copyPath, copyImage, go, rotate, toggleSizeWindow, toggleFullscreen, fullscreen]);
+  }, [
+    aboutOpen,
+    tool,
+    saveCrop,
+    pickFile,
+    copyPath,
+    copyImage,
+    go,
+    rotate,
+    toggleSizeWindow,
+    toggleFullscreen,
+    fullscreen,
+  ]);
 
   const onZoom = useCallback(
     (z: number, fit: boolean, fitZoom: number) => setZoom({ zoom: z, fit, fitZoom }),
@@ -320,17 +452,6 @@ export default function App() {
   const menu: MenuItem[][] = [
     [
       { label: "Open…", shortcut: "Ctrl+O", run: pickFile },
-      {
-        label: "Show in folder",
-        disabled: !current.current,
-        run: () => current.current && revealItemInDir(current.current),
-      },
-      { label: "Copy image", shortcut: "Ctrl+C", disabled: !hasImage, run: copyImage },
-      { label: "Copy path", shortcut: "Ctrl+Shift+C", disabled: !current.current, run: copyPath },
-    ],
-    [
-      { label: "Rotate right", shortcut: "R", disabled: !hasImage, run: () => rotate(1) },
-      { label: "Rotate left", shortcut: "L", disabled: !hasImage, run: () => rotate(-1) },
       { label: "Fullscreen", shortcut: "F11", run: toggleFullscreen },
     ],
     [
@@ -349,6 +470,61 @@ export default function App() {
       },
     ],
     [{ label: "About", run: () => setAboutOpen(true) }],
+  ];
+
+  const editBlocked = image ? image.editBlocked : "No image";
+  const savesOver = "Saves the file (the original goes to the Recycle Bin)";
+  const ctxItems: CtxItem[][] = [
+    [
+      { label: "Copy", shortcut: "Ctrl+C", disabled: !hasImage, run: copyImage },
+      { label: "Copy path", shortcut: "Ctrl+Shift+C", run: copyPath },
+      { label: "Copy name", run: copyName },
+      { label: "Show in folder", run: showInFolder },
+    ],
+    [
+      {
+        label: "Edit",
+        disabled: !!editBlocked,
+        title: editBlocked ?? undefined,
+        submenu: [
+          [
+            { label: "Rotate right", title: savesOver, run: () => saveEdit({ kind: "rotate", turns: 1 }, false) },
+            { label: "Rotate left", title: savesOver, run: () => saveEdit({ kind: "rotate", turns: 3 }, false) },
+            { label: "Rotate 180°", title: savesOver, run: () => saveEdit({ kind: "rotate", turns: 2 }, false) },
+          ],
+          [
+            { label: "Crop…", run: startCrop },
+            { label: "Resize…", run: () => setTool("resize") },
+          ],
+        ],
+      },
+      {
+        label: "Open with",
+        submenu: [
+          handlers === null
+            ? [{ label: "Looking for apps…", disabled: true }]
+            : handlers.length
+              ? handlers.map((h) => ({
+                  label: h.name,
+                  run: () =>
+                    invoke("open_with", { path: current.current, id: h.id }).catch((e) =>
+                      flash(String(e), 3500),
+                    ),
+                }))
+              : [{ label: "No other apps found", disabled: true }],
+          [
+            {
+              label: "Choose another app…",
+              run: () =>
+                invoke("open_with_dialog", { path: current.current }).catch((e) =>
+                  flash(String(e), 3500),
+                ),
+            },
+          ],
+        ],
+      },
+      { label: "Set as desktop background", disabled: !hasImage, run: setWallpaper },
+    ],
   ];
 
   const shownPath = image?.path ?? error?.path ?? null;
@@ -378,9 +554,29 @@ export default function App() {
           menu={menu}
         />
       )}
-      <main className="body">
+      <main className="body" onContextMenu={openContextMenu}>
         {image ? (
-          <Viewer ref={viewer} image={image} rotation={rotation} checker={checker} onZoom={onZoom} />
+          <Viewer
+            ref={viewer}
+            image={image}
+            rotation={rotation}
+            checker={checker}
+            onZoom={onZoom}
+            overlay={
+              tool === "crop"
+                ? (rect) => (
+                    <CropOverlay
+                      rect={rect}
+                      imgW={image.width}
+                      imgH={image.height}
+                      box={cropBox}
+                      ratio={cropRatio}
+                      onChange={setCropBox}
+                    />
+                  )
+                : undefined
+            }
+          />
         ) : error ? (
           <div className="placeholder">
             <div className="placeholder-title">Can't show {fileName(error.path)}</div>
@@ -397,7 +593,7 @@ export default function App() {
             <div className="placeholder-text">or drop one here · Ctrl+O</div>
           </div>
         )}
-        {folder.length > 1 && (image || error) ? (
+        {folder.length > 1 && (image || error) && !tool ? (
           <>
             <button
               type="button"
@@ -422,8 +618,28 @@ export default function App() {
           </>
         ) : null}
         {loading && image ? <div className="loading-bar" /> : null}
+        {tool === "crop" ? (
+          <CropBar
+            box={cropBox}
+            aspect={cropAspect}
+            busy={busy}
+            onAspect={pickAspect}
+            onCancel={() => setTool(null)}
+            onSave={saveCrop}
+          />
+        ) : null}
         {toast ? <div className="toast">{toast}</div> : null}
       </main>
+      {ctx ? <ContextMenu x={ctx.x} y={ctx.y} items={ctxItems} onClose={() => setCtx(null)} /> : null}
+      {tool === "resize" && image ? (
+        <ResizeDialog
+          width={image.width}
+          height={image.height}
+          busy={busy}
+          onCancel={() => setTool(null)}
+          onSave={(w, h, asCopy) => void saveEdit({ kind: "resize", w, h }, asCopy)}
+        />
+      ) : null}
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </div>
   );
