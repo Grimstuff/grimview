@@ -39,6 +39,11 @@ Or drop a file on the exe, the window, or use **Open with**. The installer adds 
 | Ctrl+C / Ctrl+Shift+C | Copy image / copy path |
 | Ctrl+O | Open |
 | Esc | Leave fullscreen, or close |
+| Right-click | Copy, copy path, copy name, show in folder, Edit, Open with, set as desktop background |
+
+## Editing
+
+Right-click → **Edit** rotates, crops or resizes and saves. **Save** overwrites the file and sends the original to the Recycle Bin; **Save copy** writes `name (edited).ext` next to it. Editing works on PNG, JPEG, BMP, TIFF, WebP, TGA, QOI and GIF, but not on animated GIF/WebP/APNG or formats Grimview can only read (HEIC, RAW, AVIF, SVG…). Metadata such as EXIF is not kept.
 
 ## Develop
 
