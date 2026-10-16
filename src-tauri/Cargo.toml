@@ -1,0 +1,50 @@
+[package]
+name = "grimview"
+version = "0.1.0"
+description = "A minimal Fluent-style image viewer"
+authors = ["Grimmers"]
+edition = "2021"
+
+[lib]
+name = "grimview_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+percent-encoding = "2"
+# Formats WebView2 can't show natively. AVIF/WebP/GIF/etc. go straight to the webview.
+image = { version = "0.25", default-features = false, features = [
+    "png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga", "dds",
+    "hdr", "exr", "pnm", "qoi", "ff", "rayon",
+] }
+jxl-oxide = { version = "0.12", features = ["image"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+# WIC: HEIC/HEIF, camera RAW and JPEG XR through the codecs Windows already has.
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Imaging",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Variant",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
+strip = true
+
+# Decoders are painfully slow unoptimized; keep `tauri dev` usable on big TIFF/RAW.
+[profile.dev.package."*"]
+opt-level = 2

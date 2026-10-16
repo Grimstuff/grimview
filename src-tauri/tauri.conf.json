@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Grimview",
+  "version": "0.1.0",
+  "identifier": "com.grimmers.grimview",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1430",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Grimview",
+        "width": 900,
+        "height": 640,
+        "minWidth": 320,
+        "minHeight": 220,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true,
+        "visible": false,
+        "dragDropEnabled": true,
+        "backgroundColor": "#1e1e1e"
+      }
+    ],
+    "security": {
+      "dangerousDisableAssetCspModification": ["style-src", "style-src-elem", "style-src-attr"],
+      "csp": {
+        "default-src": "'self' customprotocol: http://tauri.localhost https://tauri.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost https://ipc.localhost http://gv.localhost https://gv.localhost gv:",
+        "img-src": "'self' http://gv.localhost https://gv.localhost gv: http://tauri.localhost https://tauri.localhost blob: data:",
+        "style-src": "'self' 'unsafe-inline'",
+        "style-src-elem": "'self' 'unsafe-inline'",
+        "style-src-attr": "'unsafe-inline'",
+        "script-src": "'self'",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'self'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "displayLanguageSelector": false
+      }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "png", "apng", "jpg", "jpeg", "jpe", "jfif", "gif", "webp", "bmp", "dib",
+          "ico", "cur", "svg", "avif", "tif", "tiff", "tga", "dds", "hdr", "exr",
+          "pnm", "pbm", "pgm", "ppm", "pam", "qoi", "ff", "jxl",
+          "heic", "heif", "hif", "jxr", "wdp", "hdp",
+          "dng", "cr2", "cr3", "crw", "nef", "nrw", "arw", "srf", "sr2", "orf",
+          "rw2", "raf", "pef", "srw", "x3f", "3fr", "erf", "kdc", "dcr", "mrw", "mos", "iiq", "rwl"
+        ],
+        "name": "Grimview Image",
+        "description": "Open with Grimview",
+        "role": "Viewer"
+      }
+    ]
+  }
+}
