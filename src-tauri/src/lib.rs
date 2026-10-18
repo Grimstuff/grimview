@@ -176,6 +176,17 @@ async fn edit_image(path: String, op: edit::EditOp, as_copy: bool) -> Result<Str
         .map_err(|e| e.to_string())?
 }
 
+/// True when this exe was put in place by the NSIS installer, which leaves
+/// `uninstall.exe` beside it. The portable exe can't self-update: the updater
+/// runs the installer, which would install a second copy elsewhere.
+#[tauri::command]
+fn is_installed_copy() -> bool {
+    std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join("uninstall.exe").is_file()))
+        .unwrap_or(false)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -190,6 +201,7 @@ pub fn run() {
             {
                 use tauri::window::Color;
                 use tauri::Manager;
+                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 if let Some(win) = app.get_webview_window("main") {
                     let _ = win.set_background_color(Some(Color(0x1e, 0x1e, 0x1e, 0xff)));
                     // The frontend shows the window once it is sized to the image. If the
@@ -217,7 +229,8 @@ pub fn run() {
             shell::open_with_handlers,
             shell::open_with,
             shell::open_with_dialog,
-            shell::set_wallpaper
+            shell::set_wallpaper,
+            is_installed_copy
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
