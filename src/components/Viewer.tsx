@@ -26,6 +26,8 @@ interface ViewerProps {
   onZoom(zoom: number, fit: boolean, fitZoom: number): void;
   /** Drawn over the image (crop tool); gets the unrotated image's box in stage CSS px. */
   overlay?: (rect: ImageRect) => React.ReactNode;
+  /** Double-click on the image (App: fullscreen). */
+  onDoubleClick?: () => void;
 }
 
 export interface ImageRect {
@@ -48,7 +50,7 @@ const MAX_ZOOM = 64;
 const DRAG_THRESHOLD = 4;
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
-  { image, rotation, checker, onZoom, overlay },
+  { image, rotation, checker, onZoom, overlay, onDoubleClick: onDouble },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -216,6 +218,7 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   };
 
   const onDoubleClick = (e: React.MouseEvent) => {
+    if (onDouble) return onDouble();
     const v = viewRef.current;
     if (v.fit && fitZoom() < 1) {
       const r = stageRef.current!.getBoundingClientRect();

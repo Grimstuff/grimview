@@ -29,10 +29,10 @@ Or drop a file on the exe, the window, or use **Open with**. The installer adds 
 | Home / End | First / last image |
 | Wheel, + / − | Zoom (around the cursor) |
 | 0 / 1 | Fit / actual size |
-| Double-click | Toggle fit and 100% |
+| Double-click | Fullscreen (again to leave) |
 | Drag | Pan when zoomed in, otherwise move the window |
 | R / L | Rotate right / left (view only) |
-| W | Toggle "Size window to image" (on: the window resizes to every image) |
+| W | Toggle "Size window to image" (on: the window resizes to every image, unless you maximized or resized it yourself) |
 | Click the % | Zoom slider (snaps to 100% in the middle and to fit) |
 | Click the file name | Copy the file name |
 | F11 or F | Fullscreen |

@@ -25,7 +25,7 @@ import {
   type LoadedImage,
 } from "./lib/images";
 import { initSystemAccent, initSystemTheme } from "./lib/theme";
-import { fitWindowToImage, revealWindow } from "./lib/windowFit";
+import { fitWindowToImage, initUserSizeTracking, revealWindow } from "./lib/windowFit";
 
 const CHECKER_KEY = "grimview.checker";
 const SIZE_WINDOW_KEY = "grimview.sizeWindowToImage";
@@ -204,7 +204,7 @@ export default function App() {
     writeFlag(SIZE_WINDOW_KEY, on);
     setSizeWindow(on);
     const img = imageRef.current;
-    if (on && img) void fitWindowToImage(...turnedSize(img, rotation));
+    if (on && img) void fitWindowToImage(...turnedSize(img, rotation), { force: true });
   }, [rotation]);
 
   const toggleChecker = useCallback(() => {
@@ -335,6 +335,7 @@ export default function App() {
   useEffect(() => {
     const untheme = initSystemTheme();
     const unaccent = initSystemAccent();
+    const unsize = initUserSizeTracking();
     void (async () => {
       try {
         formats.current = await invoke<string[]>("get_formats");
@@ -353,6 +354,7 @@ export default function App() {
     return () => {
       untheme();
       unaccent();
+      unsize();
     };
   }, [openPath]);
 
@@ -578,6 +580,7 @@ export default function App() {
             rotation={rotation}
             checker={checker}
             onZoom={onZoom}
+            onDoubleClick={toggleFullscreen}
             overlay={
               tool === "crop"
                 ? (rect) => (
