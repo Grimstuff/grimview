@@ -28,16 +28,66 @@ async function targetMonitor(visible: boolean): Promise<Monitor | null> {
   return (await currentMonitor()) ?? (await primaryMonitor());
 }
 
+/** Resizes before this time are our own placement, not the user's. */
+let placingUntil = 0;
+/** The user dragged an edge or snapped the window since the last explicit fit. */
+let userSized = false;
+
+/**
+ * Watch for the user sizing the window themselves (edge drag, Snap). Maximize,
+ * restore and fullscreen are their own states and don't count.
+ */
+export function initUserSizeTracking(): () => void {
+  let unlisten: (() => void) | undefined;
+  let cancelled = false;
+  void (async () => {
+    try {
+      const win = getCurrentWindow();
+      let lastMax = await win.isMaximized();
+      let lastFs = await win.isFullscreen();
+      const u = await win.onResized(async () => {
+        const max = await win.isMaximized();
+        const fs = await win.isFullscreen();
+        const stateChange = max !== lastMax || fs !== lastFs;
+        lastMax = max;
+        lastFs = fs;
+        if (stateChange || max || fs || Date.now() < placingUntil) return;
+        userSized = true;
+      });
+      if (cancelled) u();
+      else unlisten = u;
+    } catch {
+      /* browser preview */
+    }
+  })();
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}
+
 /**
  * Size the window so the image shows at 100% (one image pixel per screen pixel),
  * shrunk to fit the monitor work area when it is bigger. Hidden windows are centered;
  * a visible one keeps its center and is nudged back inside the work area.
+ *
+ * A maximized, fullscreen or user-sized window is left alone unless `force`
+ * (W / turning "Size window to image" on), which also forgets the user's size.
  */
-export async function fitWindowToImage(imgW: number, imgH: number): Promise<void> {
+export async function fitWindowToImage(
+  imgW: number,
+  imgH: number,
+  opts: { force?: boolean } = {},
+): Promise<void> {
   try {
     const win = getCurrentWindow();
     if (await win.isFullscreen()) return;
-    if (await win.isMaximized()) await win.unmaximize();
+    if (opts.force) userSized = false;
+    else if (userSized || (await win.isMaximized())) return;
+    if (await win.isMaximized()) {
+      placingUntil = Date.now() + 600;
+      await win.unmaximize();
+    }
     const visible = await win.isVisible();
     const mon = await targetMonitor(visible);
     if (!mon) return;
@@ -65,7 +115,9 @@ export async function fitWindowToImage(imgW: number, imgH: number): Promise<void
     const y = Math.round(Math.max(wa.position.y, Math.min(maxY, cy - h / 2)));
 
     // By the visible area: Tauri's setSize pads for frame borders a frameless window doesn't show.
+    placingUntil = Date.now() + 600;
     await invoke("place_window", { x, y, w, h });
+    placingUntil = Date.now() + 400;
   } catch (e) {
     console.warn("fitWindowToImage", e);
   }
