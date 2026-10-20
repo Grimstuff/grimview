@@ -23,6 +23,7 @@
     "core:window:allow-set-position",
     "core:window:allow-show",
     "core:window:allow-set-background-color",
-    "core:webview:allow-set-webview-background-color"
+    "core:webview:allow-set-webview-background-color",
+    "updater:default"
   ]
 }

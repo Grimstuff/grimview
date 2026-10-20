@@ -7,9 +7,11 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { Chrome, type MenuItem } from "./components/Chrome";
 import { Viewer, type ViewerHandle } from "./components/Viewer";
 import { AboutDialog } from "./components/AboutDialog";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { ContextMenu, type CtxItem } from "./components/ContextMenu";
 import { ASPECTS, CropBar, CropOverlay, fitAspect, roundBox, type CropBox } from "./components/CropTool";
 import { ResizeDialog } from "./components/ResizeDialog";
+import { checkForUpdates, useUpdateState } from "./lib/updates";
 import {
   copyImageToClipboard,
   editImage,
@@ -67,6 +69,7 @@ export default function App() {
   imageRef.current = image;
   const [fullscreen, setFullscreen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const updateOpen = useUpdateState().open;
   const [toast, setToast] = useState<string | null>(null);
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
   const [handlers, setHandlers] = useState<OpenWithHandler[] | null>(null);
@@ -374,7 +377,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (aboutOpen || tool === "resize") return;
+      if (aboutOpen || updateOpen || tool === "resize") return;
       const ctrl = e.ctrlKey || e.metaKey;
       const k = e.key;
       const handled = () => e.preventDefault();
@@ -449,6 +452,7 @@ export default function App() {
     };
   }, [
     aboutOpen,
+    updateOpen,
     tool,
     saveCrop,
     pickFile,
@@ -487,7 +491,10 @@ export default function App() {
         run: toggleChecker,
       },
     ],
-    [{ label: "About", run: () => setAboutOpen(true) }],
+    [
+      { label: "Check for updates", run: checkForUpdates },
+      { label: "About", run: () => setAboutOpen(true) },
+    ],
   ];
 
   const editBlocked = image ? image.editBlocked : "No image";
@@ -660,6 +667,7 @@ export default function App() {
         />
       ) : null}
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+      <UpdateDialog />
     </div>
   );
 }
