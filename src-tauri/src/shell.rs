@@ -192,3 +192,59 @@ pub fn set_wallpaper(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) ->
         Err("Windows only".into())
     }
 }
+
+/// Drag the file out of the window (to Explorer, the desktop, a chat app…) as a real
+/// shell drag, with Windows' own drag image. Copy or link only: allowing Move would let
+/// a drop on the same drive take the file away from its folder.
+/// Runs on the main thread, which owns the window and is already OLE-initialized;
+/// the call returns when the drop finishes.
+#[tauri::command]
+pub async fn start_file_drag(window: tauri::WebviewWindow, path: String) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let hwnd = window.hwnd().map_err(|e| e.to_string())?.0 as isize;
+        window
+            .run_on_main_thread(move || {
+                let _ = tx.send(win_drag::drag(hwnd, &path));
+            })
+            .map_err(|e| e.to_string())?;
+        tauri::async_runtime::spawn_blocking(move || rx.recv().unwrap_or(Ok(())))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (window, path);
+        Err("Windows only".into())
+    }
+}
+
+#[cfg(windows)]
+mod win_drag {
+    use windows::core::HSTRING;
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::System::Com::IDataObject;
+    use windows::Win32::System::Ole::{DROPEFFECT_COPY, DROPEFFECT_LINK};
+    use windows::Win32::UI::Shell::{
+        BHID_DataObject, IShellItem, SHCreateItemFromParsingName, SHDoDragDrop,
+    };
+
+    pub fn drag(hwnd: isize, path: &str) -> Result<(), String> {
+        unsafe {
+            let item: IShellItem = SHCreateItemFromParsingName(&HSTRING::from(path), None)
+                .map_err(|e| format!("Could not drag the file: {e}"))?;
+            let data: IDataObject = item
+                .BindToHandler(None, &BHID_DataObject)
+                .map_err(|e| format!("Could not drag the file: {e}"))?;
+            // A cancelled drag (Esc, dropped nowhere) also lands here; that's not an error.
+            let _ = SHDoDragDrop(
+                Some(HWND(hwnd as *mut std::ffi::c_void)),
+                &data,
+                None,
+                DROPEFFECT_COPY | DROPEFFECT_LINK,
+            );
+        }
+        Ok(())
+    }
+}

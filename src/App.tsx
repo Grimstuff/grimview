@@ -228,6 +228,20 @@ export default function App() {
     }
   }, [flash]);
 
+  /** Drag the current file out to Explorer, the desktop or another app (copy, never move). */
+  const draggingOut = useRef(false);
+  const dragOut = useCallback(() => {
+    const p = current.current;
+    if (!p || draggingOut.current) return;
+    draggingOut.current = true;
+    invoke("start_file_drag", { path: p })
+      .catch((e) => flash(String(e), 3500))
+      .finally(() => {
+        // Let a drop on our own window settle before drops open files again.
+        window.setTimeout(() => (draggingOut.current = false), 300);
+      });
+  }, [flash]);
+
   const showInFolder = useCallback(() => {
     if (current.current) void revealItemInDir(current.current).catch(() => undefined);
   }, []);
@@ -366,6 +380,8 @@ export default function App() {
     let unlisten: (() => void) | undefined;
     void getCurrentWebview()
       .onDragDropEvent((e) => {
+        // Our own drag-out dropped back on the window: nothing to open.
+        if (draggingOut.current) return;
         if (e.payload.type === "drop" && e.payload.paths.length) {
           void openPath(e.payload.paths[0], !current.current || sizeWindowRef.current);
         }
@@ -588,6 +604,7 @@ export default function App() {
             checker={checker}
             onZoom={onZoom}
             onDoubleClick={toggleFullscreen}
+            onDragOut={dragOut}
             overlay={
               tool === "crop"
                 ? (rect) => (
@@ -612,7 +629,7 @@ export default function App() {
             </button>
           </div>
         ) : loading ? null : (
-          <div className="placeholder" data-tauri-drag-region>
+          <div className="placeholder">
             <button type="button" className="placeholder-btn" onClick={() => void pickFile()}>
               Open an image
             </button>

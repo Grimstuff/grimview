@@ -230,6 +230,7 @@ pub fn run() {
             shell::open_with,
             shell::open_with_dialog,
             shell::set_wallpaper,
+            shell::start_file_drag,
             is_installed_copy
         ])
         .run(tauri::generate_context!())
