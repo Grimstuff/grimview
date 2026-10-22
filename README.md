@@ -30,7 +30,8 @@ Or drop a file on the exe, the window, or use **Open with**. The installer adds 
 | Wheel, + / − | Zoom (around the cursor) |
 | 0 / 1 | Fit / actual size |
 | Double-click | Fullscreen (again to leave) |
-| Drag | Pan when zoomed in, otherwise move the window |
+| Drag the picture | Drag the file out (to the desktop, Explorer, a chat…) as a copy; pans instead when zoomed in. Ctrl+drag always drags the file out |
+| Drag the title bar | Move the window |
 | R / L | Rotate right / left (view only) |
 | W | Toggle "Size window to image" (on: the window resizes to every image, unless you maximized or resized it yourself) |
 | Click the % | Zoom slider (snaps to 100% in the middle and to fit) |

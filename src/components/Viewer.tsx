@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { LoadedImage } from "../lib/images";
 
 export interface ViewerHandle {
@@ -28,6 +27,8 @@ interface ViewerProps {
   overlay?: (rect: ImageRect) => React.ReactNode;
   /** Double-click on the image (App: fullscreen). */
   onDoubleClick?: () => void;
+  /** Drag on the picture: start a file drag out of the window. */
+  onDragOut?: () => void;
 }
 
 export interface ImageRect {
@@ -50,7 +51,7 @@ const MAX_ZOOM = 64;
 const DRAG_THRESHOLD = 4;
 
 export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
-  { image, rotation, checker, onZoom, overlay, onDoubleClick: onDouble },
+  { image, rotation, checker, onZoom, overlay, onDoubleClick: onDouble, onDragOut },
   ref,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -167,10 +168,16 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomAt]);
 
-  // Drag pans when the image is bigger than the window; otherwise it moves the window.
-  const drag = useRef<{ sx: number; sy: number; vx: number; vy: number; moved: boolean } | null>(
-    null,
-  );
+  // Drag pans when the image is bigger than the window; otherwise (or with Ctrl) dragging
+  // the picture drags the file out. Only the title bar moves the window.
+  const drag = useRef<{
+    sx: number;
+    sy: number;
+    vx: number;
+    vy: number;
+    moved: boolean;
+    onImage: boolean;
+  } | null>(null);
   const [panning, setPanning] = useState(false);
 
   const pannable = () => {
@@ -183,7 +190,14 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
   const onPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || overlay) return;
     const v = viewRef.current;
-    drag.current = { sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false };
+    const r = stageRef.current!.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const halfW = (imgW * v.zoom) / dpr / 2;
+    const halfH = (imgH * v.zoom) / dpr / 2;
+    const px = e.clientX - r.left - r.width / 2 - v.x;
+    const py = e.clientY - r.top - r.height / 2 - v.y;
+    const onImage = Math.abs(px) <= halfW && Math.abs(py) <= halfH;
+    drag.current = { sx: e.clientX, sy: e.clientY, vx: v.x, vy: v.y, moved: false, onImage };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -199,11 +213,10 @@ export const Viewer = forwardRef<ViewerHandle, ViewerProps>(function Viewer(
     if (!d.moved) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       d.moved = true;
-      if (!pannable()) {
+      if (e.ctrlKey || !pannable()) {
+        const onImage = d.onImage;
         drag.current = null;
-        void getCurrentWindow()
-          .startDragging()
-          .catch(() => undefined);
+        if (onImage) onDragOut?.();
         return;
       }
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
