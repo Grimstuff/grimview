@@ -1,6 +1,6 @@
 [package]
 name = "grimview"
-version = "0.1.0"
+version = "0.1.1"
 description = "A minimal Fluent-style image viewer"
 authors = ["Grimmers"]
 edition = "2021"
