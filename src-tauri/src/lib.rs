@@ -93,13 +93,14 @@ fn text_response(status: StatusCode, msg: String) -> Response<Vec<u8>> {
         .unwrap()
 }
 
-/// `canonicalize` on Windows returns `\?\C:\...`; keep that out of the UI.
+/// `canonicalize` on Windows returns `\\?\C:\...`; keep that out of the UI (and out of
+/// shell calls, which reject it).
 fn normalize_path_display(path: &Path) -> String {
     let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
     let s = resolved.to_string_lossy();
-    let s = if let Some(rest) = s.strip_prefix(r"\?\UNC\") {
-        format!(r"\{rest}")
-    } else if let Some(rest) = s.strip_prefix(r"\?\") {
+    let s = if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
         rest.to_string()
     } else {
         s.into_owned()
