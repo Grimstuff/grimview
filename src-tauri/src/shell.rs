@@ -230,13 +230,30 @@ mod win_drag {
         BHID_DataObject, IShellItem, SHCreateItemFromParsingName, SHDoDragDrop,
     };
 
+    /// The shell namespace won't parse `\\?\` long-path prefixes or forward slashes.
+    fn shell_path(path: &str) -> String {
+        let p = path.replace('/', "\\");
+        if let Some(rest) = p.strip_prefix(r"\\?\UNC\") {
+            format!(r"\\{rest}")
+        } else if let Some(rest) = p.strip_prefix(r"\\?\") {
+            rest.to_string()
+        } else {
+            p
+        }
+    }
+
+    /// Only the HRESULT's own text: the thread's stale COM error info can belong to an
+    /// unrelated earlier call (it once read "Class not registered" for E_INVALIDARG).
+    fn fail(e: windows::core::Error) -> String {
+        format!("Could not drag the file: {} ({:#010X})", e.code().message(), e.code().0)
+    }
+
     pub fn drag(hwnd: isize, path: &str) -> Result<(), String> {
+        let path = shell_path(path);
         unsafe {
-            let item: IShellItem = SHCreateItemFromParsingName(&HSTRING::from(path), None)
-                .map_err(|e| format!("Could not drag the file: {e}"))?;
-            let data: IDataObject = item
-                .BindToHandler(None, &BHID_DataObject)
-                .map_err(|e| format!("Could not drag the file: {e}"))?;
+            let item: IShellItem =
+                SHCreateItemFromParsingName(&HSTRING::from(path.as_str()), None).map_err(fail)?;
+            let data: IDataObject = item.BindToHandler(None, &BHID_DataObject).map_err(fail)?;
             // A cancelled drag (Esc, dropped nowhere) also lands here; that's not an error.
             let _ = SHDoDragDrop(
                 Some(HWND(hwnd as *mut std::ffi::c_void)),
