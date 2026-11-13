@@ -3,6 +3,7 @@ mod accent;
 mod decode;
 pub mod edit;
 mod formats;
+mod looping;
 mod placement;
 pub mod shell;
 #[cfg(windows)]
@@ -67,7 +68,7 @@ fn serve_image(request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let ext = formats::ext_of(&path);
     let result: Result<(Vec<u8>, &str), String> = match formats::native_mime(&ext) {
         Some(mime) if !force => std::fs::read(&path)
-            .map(|b| (b, mime))
+            .map(|b| (looping::force_infinite(b), mime))
             .map_err(|e| format!("Could not read the file: {e}")),
         _ => decoded_png(&path).map(|png| ((*png).clone(), "image/png")),
     };
